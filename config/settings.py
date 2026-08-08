@@ -16,8 +16,9 @@ class Settings(BaseSettings):
 
     fred_api_key: str = Field(default="")
     fmp_api_key: str = Field(default="")
-
-    github_models_endpoint: str = "https://models.inference.ai.azure.com"
+    
+    open_ai_api_key: str = Field(default="")
+    open_ai_endpoint: str = "https://models.inference.ai.azure.com"
     github_models_default: str = "gpt-4o-mini"
     github_models_escalation: str = "meta-llama-3.1-70b-instruct"
 

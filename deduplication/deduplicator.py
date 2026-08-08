@@ -18,6 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import Event, EventDocument, RawDocument
 
 
+SIMHASH_BITS = 64
+SIMHASH_MASK = (1 << SIMHASH_BITS) - 1
+SIGNED_SIMHASH_MAX = 1 << 63
+
+
 def normalise_text(title: str, body: str) -> str:
     combined = f"{title or ''} {body or ''}"
     combined = re.sub(r"\s+", " ", combined).strip().lower()
@@ -29,13 +34,22 @@ def content_hash(title: str, body: str) -> str:
     return hashlib.sha256(normalise_text(title, body).encode()).hexdigest()
 
 
+def _to_signed_64bit(value: int) -> int:
+    unsigned_value = value & SIMHASH_MASK
+    if unsigned_value >= SIGNED_SIMHASH_MAX:
+        return unsigned_value - (1 << SIMHASH_BITS)
+    return unsigned_value
+
+
 def compute_simhash(title: str, body: str) -> int:
     text_input = f"{title or ''} {(body or '')[:200]}"
-    return Simhash(text_input).value
+    return _to_signed_64bit(Simhash(text_input).value)
 
 
 def hamming_distance(a: int, b: int) -> int:
-    return bin(a ^ b).count("1")
+    a_bits = _to_signed_64bit(a) & SIMHASH_MASK
+    b_bits = _to_signed_64bit(b) & SIMHASH_MASK
+    return bin(a_bits ^ b_bits).count("1")
 
 
 async def find_duplicate_by_hash(

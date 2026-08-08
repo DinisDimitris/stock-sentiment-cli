@@ -8,18 +8,23 @@ from __future__ import annotations
 import logging
 import os
 
-from openai import AsyncOpenAI
-
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_client() -> AsyncOpenAI:
-    pat = settings.github_pat or os.environ.get("GITHUB_PAT", "")
-    if not pat:
-        raise RuntimeError("GITHUB_PAT not configured. Set it in .env or environment.")
+def get_client():
+    try:
+        from openai import AsyncOpenAI
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Missing dependency 'openai'. Install project dependencies with "
+            "'pip install -r requirements.txt' before running analysis."
+        ) from exc
+
+    api_key = settings.open_ai_api_key 
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not configured. Set it in .env or environment.")
     return AsyncOpenAI(
-        base_url=settings.github_models_endpoint,
-        api_key=pat,
+        api_key=api_key
     )

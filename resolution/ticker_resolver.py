@@ -181,6 +181,12 @@ async def _step5_finnhub(needle: str) -> Optional[str]:
 async def _add_alias(
     alias: str, ticker: str, alias_type: str, session: AsyncSession
 ) -> None:
+    company_exists = await session.execute(
+        select(Company.ticker).where(Company.ticker == ticker)
+    )
+    if not company_exists.scalar_one_or_none():
+        return
+
     existing = await session.execute(
         select(TickerAlias).where(
             TickerAlias.alias == alias.lower(),

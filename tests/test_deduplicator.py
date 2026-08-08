@@ -42,3 +42,12 @@ def test_hamming_distance_identical():
 
 def test_hamming_distance_one_bit():
     assert hamming_distance(0b1010, 0b1011) == 1
+
+
+def test_simhash_value_fits_signed_64_bit_range():
+    value = compute_simhash(
+        "AAPL",
+        "The quick brown fox jumps over the lazy dog " * 20,
+    )
+
+    assert -2**63 <= value <= 2**63 - 1

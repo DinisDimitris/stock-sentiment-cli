@@ -23,11 +23,31 @@ import click
 # Ensure project root is on path when run directly
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+
+def _configure_logging(log_file: str | None = None) -> None:
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        root_logger.removeHandler(handler)
+        handler.close()
+
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    stream_handler = logging.StreamHandler(sys.stderr)
+    stream_handler.setFormatter(formatter)
+    root_logger.addHandler(stream_handler)
+
+    if log_file:
+        try:
+            file_handler = logging.FileHandler(log_file)
+        except OSError as exc:
+            raise click.ClickException(f"Could not open log file '{log_file}': {exc}") from exc
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
+    root_logger.setLevel(logging.INFO)
 
 
 @click.group()
@@ -226,8 +246,17 @@ def analyze(company: str, fresh: bool):
 async def _analyze(name_or_ticker: str, force_refresh: bool):
     from db.session import AsyncSessionLocal
     from resolution.ticker_resolver import resolve_interactive
-    from agent.review_agent import run_review
     from output.formatter import render_summary
+
+    try:
+        from agent.review_agent import run_review
+    except ModuleNotFoundError as exc:
+        if exc.name == "openai":
+            raise click.ClickException(
+                "Missing dependency 'openai'. Install project dependencies with "
+                "'pip install -r requirements.txt' and retry."
+            ) from exc
+        raise
 
     async with AsyncSessionLocal() as session:
         ticker = await resolve_interactive(name_or_ticker, session)
@@ -236,14 +265,23 @@ async def _analyze(name_or_ticker: str, force_refresh: bool):
             return
 
     click.echo(f"[analyze] Running analysis for {ticker}...")
-    result = await run_review(ticker, force_refresh=force_refresh)
+    try:
+        result = await run_review(ticker, force_refresh=force_refresh)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
     render_summary(result)
 
 
 @cli.command("run")
 @click.option("--once", is_flag=True, help="Run one ingestion cycle then exit (for testing)")
-def run_daemon(once: bool):
+@click.option(
+    "--log-file",
+    type=click.Path(dir_okay=False, writable=True, path_type=str),
+    help="Write logs to a file in addition to stderr",
+)
+def run_daemon(once: bool, log_file: str | None):
     """Start the ingestion and processing daemon."""
+    _configure_logging(log_file)
     if once:
         asyncio.run(_run_once())
     else:

@@ -65,6 +65,7 @@ class RawDocument(Base):
     retrieved_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     raw_json = Column(JSONB)
     fast_lane = Column(Boolean, default=False)
+    simhash = Column(BigInteger)
 
     document_companies = relationship("DocumentCompany", back_populates="document")
     event_documents = relationship("EventDocument", back_populates="document")
