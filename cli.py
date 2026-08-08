@@ -333,12 +333,20 @@ async def _analyze(name_or_ticker: str, force_refresh: bool):
     help="How often the daemon should run the ingestion cycle (examples: 15m, 1h, daily, weekly, 2 weeks)",
 )
 @click.option(
+    "--email-to",
+    "email_tos",
+    multiple=True,
+    help="Email address to receive the generated summary report. May be supplied multiple times.",
+)
+@click.option(
     "--log-file",
     type=click.Path(dir_okay=False, writable=True, path_type=str),
     help="Write logs to a file in addition to stderr",
 )
-def run_daemon(once: bool, interval: str | None, log_file: str | None):
+def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log_file: str | None):
     """Start the ingestion and processing daemon."""
+    from config.settings import settings
+
     _configure_logging(log_file)
     interval_minutes = None
     if interval:
@@ -347,31 +355,34 @@ def run_daemon(once: bool, interval: str | None, log_file: str | None):
         except ValueError as exc:
             raise click.BadParameter(str(exc), param_hint="--interval") from exc
 
+    configured_recipients = [recipient.strip() for recipient in email_tos if recipient.strip()]
+    if not configured_recipients and settings.email_to:
+        configured_recipients = [recipient.strip() for recipient in settings.email_to.split(",") if recipient.strip()]
+
     if once:
-        asyncio.run(_run_once())
+        asyncio.run(_run_once(email_tos=tuple(configured_recipients)))
     else:
-        asyncio.run(_run_daemon(interval_minutes=interval_minutes))
+        asyncio.run(_run_daemon(interval_minutes=interval_minutes, email_tos=tuple(configured_recipients)))
 
 
-async def _run_once():
-    from ingestion.scheduler import _run_fast_sources, _run_slow_sources
+async def _run_once(email_tos: tuple[str, ...] = ()):
+    from ingestion.scheduler import _run_ingestion_cycle
     from processing.model_registry import load_models
 
     click.echo("[run] Loading models...")
     load_models()
     click.echo("[run] Running one ingestion cycle...")
-    await _run_fast_sources()
-    await _run_slow_sources()
+    await _run_ingestion_cycle(output_callback=click.echo, email_recipients=list(email_tos))
     click.echo("[run] Done.")
 
 
-async def _run_daemon(interval_minutes: int | None = None):
+async def _run_daemon(interval_minutes: int | None = None, email_tos: tuple[str, ...] = ()):
     from ingestion.scheduler import run_daemon
     if interval_minutes is None:
         click.echo("[run] Starting ingestion daemon. Press Ctrl+C to stop.")
     else:
         click.echo(f"[run] Starting ingestion daemon with a {interval_minutes}-minute interval. Press Ctrl+C to stop.")
-    await run_daemon(interval_minutes=interval_minutes)
+    await run_daemon(interval_minutes=interval_minutes, output_callback=click.echo, email_recipients=list(email_tos))
 
 
 if __name__ == "__main__":

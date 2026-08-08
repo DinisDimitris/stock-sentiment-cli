@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # Macro overlay weight (15% macro, 85% company-specific)
     macro_weight: float = 0.15
 
+    # Optional SMTP settings for emailing generated summaries
+    smtp_host: str = Field(default="")
+    smtp_port: int = Field(default=587)
+    smtp_username: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_use_tls: bool = Field(default=True)
+    smtp_from: str = Field(default="")
+    email_to: str = Field(default="")
 
 
 settings = Settings()

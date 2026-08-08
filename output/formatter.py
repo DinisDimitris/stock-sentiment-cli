@@ -13,6 +13,8 @@ from rich.table import Table
 from rich import box
 from rich.text import Text
 
+from config.settings import settings
+
 console = Console()
 
 
@@ -43,6 +45,44 @@ def _format_score(score: float | None) -> str:
 
 def _importance_colour(importance: str) -> str:
     return {"CRITICAL": "red", "HIGH": "dark_orange", "MEDIUM": "yellow", "LOW": "dim"}.get(importance, "white")
+
+
+def format_summary_text(result: dict[str, Any]) -> str:
+    ticker = result.get("ticker", "?")
+    company_name = result.get("company_name", ticker)
+    sector = result.get("sector", "Unknown")
+    direction = result.get("direction", "NEUTRAL")
+    confidence = result.get("confidence_pct", 0)
+    summary = result.get("summary", "")
+    drivers = result.get("primary_drivers", [])
+    risks = result.get("primary_risks", [])
+    generated_at = result.get("generated_at", "")
+    from_cache = result.get("_from_cache", False)
+    cache_expires = result.get("_expires_at", "")
+
+    lines = [
+        f"{ticker} ({company_name}) | {sector}",
+        f"Direction: {direction} | Confidence: {confidence}%",
+        f"Generated: {generated_at or datetime.now(tz=timezone.utc).isoformat()}",
+        f"Source: {settings_model_label(from_cache, cache_expires)}",
+    ]
+
+    if summary:
+        lines.append("")
+        lines.append("Assessment:")
+        lines.append(summary)
+
+    if drivers:
+        lines.append("")
+        lines.append("Primary drivers:")
+        lines.extend(f"- {driver}" for driver in drivers)
+
+    if risks:
+        lines.append("")
+        lines.append("Primary risks:")
+        lines.extend(f"- {risk}" for risk in risks)
+
+    return "\n".join(lines)
 
 
 def render_summary(result: dict[str, Any]) -> None:

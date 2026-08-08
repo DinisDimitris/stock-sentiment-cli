@@ -10,7 +10,7 @@ import cli
 def test_run_accepts_log_file_and_writes_logs(tmp_path):
     log_path = tmp_path / "stock-sentiment.log"
 
-    async def fake_run_once():
+    async def fake_run_once(*args, **kwargs):
         logging.getLogger("cli").info("run loop started")
 
     runner = CliRunner()
@@ -46,3 +46,15 @@ def test_run_accepts_interval_and_passes_it_to_daemon():
     assert result.exit_code == 0, result.output
     assert fake_run_daemon.await_count == 1
     assert fake_run_daemon.await_args.kwargs["interval_minutes"] == 14 * 24 * 60
+
+
+def test_run_accepts_email_recipient_option():
+    runner = CliRunner()
+    fake_run_daemon = AsyncMock(return_value=None)
+
+    with patch("cli._run_daemon", new=fake_run_daemon):
+        result = runner.invoke(cli.cli, ["run", "--email-to", "ops@example.com"])
+
+    assert result.exit_code == 0, result.output
+    assert fake_run_daemon.await_count == 1
+    assert fake_run_daemon.await_args.kwargs["email_tos"] == ("ops@example.com",)

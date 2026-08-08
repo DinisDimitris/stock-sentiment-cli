@@ -1,0 +1,6 @@
+Add flag to run command so analysis can be ran optionally during a run. 
+Add functionality so that output is always sent to the file system in clean outputted format for each company, with a relevant file name and into a relevant folder. Ensure output for each company is in its own separate folder.
+Check and confirm if previous analysis outputs are saved to the database.
+Check for console error bugs when running run cli.py run on an interval.
+Check for any other bugs
+Update docs.

@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import smtplib
+from email.message import EmailMessage
+from functools import partial
+from typing import Callable
 
+import click
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from agent.review_agent import run_review
+from config.settings import settings
 from ingestion.sources.sec_edgar import SecEdgarSource
 from ingestion.sources.company_ir import CompanyIRSource
 from ingestion.sources.yahoo_finance import YahooFinanceSource
@@ -21,6 +28,7 @@ from ingestion.sources.reddit import build_reddit_sources
 from ingestion.sources.stocktwits import StockTwitsSource
 from ingestion.sources.fred import fetch_and_store_indicators
 from ingestion.sources.federal_reserve import FederalReserveSource
+from output.formatter import format_summary_text
 from processing.worker import process_next_task
 
 logger = logging.getLogger(__name__)
@@ -87,9 +95,63 @@ async def _run_reddit() -> None:
                 logger.error("[scheduler/reddit] %s error: %s", ticker, exc)
 
 
-async def _run_ingestion_cycle() -> None:
+async def _send_email_summary(recipients: list[str], subject: str, body: str) -> None:
+    if not settings.smtp_host or not recipients:
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.smtp_from or settings.smtp_username or "stock-sentiment"
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(body)
+
+    try:
+        if settings.smtp_port == 465:
+            server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port)
+        else:
+            server = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
+            if settings.smtp_use_tls:
+                server.starttls()
+
+        if settings.smtp_username:
+            server.login(settings.smtp_username, settings.smtp_password)
+        server.send_message(msg)
+        server.quit()
+        logger.info("[scheduler/email] Sent %d summary email(s)", len(recipients))
+    except Exception as exc:
+        logger.error("[scheduler/email] Could not send summary email: %s", exc)
+
+
+async def _run_analysis_cycle(output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> list[dict]:
+    tickers = await _get_watched_tickers()
+    if not tickers:
+        logger.info("[scheduler/analysis] No companies in watchlist; skipping analysis")
+        return []
+
+    results = []
+    for ticker in tickers:
+        try:
+            result = await run_review(ticker)
+            results.append(result)
+            if output_callback:
+                output_callback(format_summary_text(result))
+            else:
+                click.echo(format_summary_text(result))
+        except Exception as exc:
+            logger.error("[scheduler/analysis] %s analysis failed: %s", ticker, exc)
+
+    if email_recipients:
+        body = "\n\n".join(format_summary_text(result) for result in results)
+        if body:
+            await _send_email_summary(email_recipients, "Stock Sentiment Summary", body)
+
+    return results
+
+
+async def _run_ingestion_cycle(output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> None:
     await _run_fast_sources()
     await _run_slow_sources()
+    await _run_analysis_cycle(output_callback=output_callback, email_recipients=email_recipients)
 
 
 async def _run_transcripts() -> None:
@@ -125,23 +187,17 @@ async def _slow_lane_worker() -> None:
             await asyncio.sleep(15)
 
 
-def build_scheduler(interval_minutes: int | None = None) -> AsyncIOScheduler:
+def build_scheduler(interval_minutes: int | None = None, output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
 
-    if interval_minutes is None:
-        # Fast lane: SEC EDGAR 8-K every 15 minutes
-        scheduler.add_job(_run_fast_sources, IntervalTrigger(minutes=15), id="fast_sources", max_instances=1)
-
-        # Slow lane: general news/IR every 30 minutes
-        scheduler.add_job(_run_slow_sources, IntervalTrigger(minutes=30), id="slow_sources", max_instances=1)
-
-        # Reddit: every hour for r/stocks/investing, every 30min for WSB
-        # scheduler.add_job(_run_reddit, IntervalTrigger(minutes=60), id="reddit", max_instances=1)
-
-        logger.info("[scheduler] Started. Fast lane: 15min. Slow lane: 30min.")
-    else:
-        scheduler.add_job(_run_ingestion_cycle, IntervalTrigger(minutes=interval_minutes), id="ingestion_cycle", max_instances=1)
-        logger.info("[scheduler] Started. Ingestion cycle every %s minutes.", interval_minutes)
+    cadence_minutes = 15 if interval_minutes is None else interval_minutes
+    scheduler.add_job(
+        partial(_run_ingestion_cycle, output_callback=output_callback, email_recipients=email_recipients),
+        IntervalTrigger(minutes=cadence_minutes),
+        id="ingestion_cycle",
+        max_instances=1,
+    )
+    logger.info("[scheduler] Started. Ingestion cycle every %s minutes.", cadence_minutes)
 
     # Earnings transcripts: daily at 6AM ET
     scheduler.add_job(_run_transcripts, CronTrigger(hour=6, minute=0, timezone="US/Eastern"), id="transcripts")
@@ -152,12 +208,12 @@ def build_scheduler(interval_minutes: int | None = None) -> AsyncIOScheduler:
     return scheduler
 
 
-async def run_daemon(interval_minutes: int | None = None) -> None:
+async def run_daemon(interval_minutes: int | None = None, output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> None:
     """Start the ingestion daemon with fast and slow lane workers."""
     from processing.model_registry import load_models
     load_models()
 
-    scheduler = build_scheduler(interval_minutes=interval_minutes)
+    scheduler = build_scheduler(interval_minutes=interval_minutes, output_callback=output_callback, email_recipients=email_recipients)
     scheduler.start()
 
     # Start worker pools
