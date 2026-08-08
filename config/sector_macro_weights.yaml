@@ -1,0 +1,54 @@
+# Sector sensitivity to FRED macro indicators.
+# Weights must sum to 1.0 per sector.
+# FRED series codes: https://fred.stlouisfed.org
+sectors:
+  Technology:
+    DFF: 0.60       # Fed Funds Rate (rate-sensitive growth stocks)
+    VIXCLS: 0.40    # CBOE Volatility Index
+
+  Financials:
+    DFF: 0.80       # Fed Funds Rate (direct NIM impact)
+    T10Y2Y: 0.20    # 10Y-2Y yield spread (curve shape)
+
+  Consumer_Discretionary:
+    CPIAUCSL: 0.50  # Consumer Price Index (spending power)
+    UNRATE: 0.30    # Unemployment rate
+    DFF: 0.20       # Rates (borrowing cost)
+
+  Consumer_Staples:
+    CPIAUCSL: 0.60
+    UNRATE: 0.40
+
+  Energy:
+    DCOILWTICO: 0.70  # WTI crude oil price
+    DFF: 0.30
+
+  Healthcare:
+    DFF: 0.50
+    UNRATE: 0.50
+
+  Industrials:
+    INDPRO: 0.60    # Industrial production index
+    DFF: 0.40
+
+  Materials:
+    DCOILWTICO: 0.40
+    CPIAUCSL: 0.40
+    DFF: 0.20
+
+  Real_Estate:
+    DFF: 0.70
+    T10Y2Y: 0.30
+
+  Utilities:
+    DFF: 0.80
+    T10Y2Y: 0.20
+
+  Communication_Services:
+    DFF: 0.50
+    VIXCLS: 0.50
+
+  Default:
+    DFF: 0.50
+    CPIAUCSL: 0.30
+    UNRATE: 0.20
