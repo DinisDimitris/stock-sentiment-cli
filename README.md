@@ -81,6 +81,7 @@ The application reads configuration from `.env` (via `pydantic-settings`). The k
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` – optional SMTP configuration for summary emails
 - `EMAIL_TO` – default comma-separated recipient list for emailed summaries
 - `ANALYSIS_OUTPUT_DIR` – directory used for per-company analysis exports
+- `FINBERT_DEVICE` – optional override for the FinBERT runtime device (`auto`, `cpu`, or `cuda`)
 
 You can inspect the defaults in `.env.example`.
 
@@ -199,4 +200,5 @@ uvicorn api.app:app --reload
 - The ingestion daemon only processes companies that have been added to the watchlist.
 - Analysis results are stored in the database (`analysis_runs`) and exported to `output/analysis/<ticker>/` by default.
 - If no API keys are configured, the pipeline will still start, but some data sources may skip ingestion or return partial results.
+- FinBERT now auto-detects a compatible runtime device at startup. If the installed Torch/CUDA build does not support the current GPU, the app falls back to CPU automatically, which also keeps ARM-only hosts working.
 - `db-init` will fail fast if Alembic migrations do not complete successfully.
