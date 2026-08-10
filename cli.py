@@ -14,6 +14,7 @@ Commands:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -302,6 +303,94 @@ async def _list_companies():
         click.echo("-" * 75)
         for c in companies:
             click.echo(f"{c.ticker:<8} {(c.name or '')[:29]:<30} {(c.sector or 'unknown')[:24]:<25} {c.backfill_status}")
+
+
+@cli.command("inspect")
+@click.argument("company")
+@click.option("--limit", type=int, default=10, show_default=True, help="Maximum number of ingested documents to return")
+@click.option("--text", "as_text", is_flag=True, help="Render the retrieved documents as a human-readable report")
+def inspect_company(company: str, limit: int, as_text: bool):
+    """Inspect ingested documents for a company from the local database."""
+    asyncio.run(_inspect_company_command(company, limit=limit, as_text=as_text))
+
+
+async def _inspect_company_command(name_or_ticker: str, *, limit: int = 10, as_text: bool = False):
+    try:
+        documents = await _inspect_company(name_or_ticker, limit=limit)
+    except click.ClickException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive guard for runtime DB issues
+        raise click.ClickException(f"Could not inspect documents for '{name_or_ticker}': {exc}") from exc
+
+    if as_text:
+        if not documents:
+            click.echo(f"No ingested documents found for '{name_or_ticker}'.")
+            return
+        click.echo(f"Ingested documents for {documents[0]['ticker']}:")
+        for document in documents:
+            title = document.get("title") or "(no title)"
+            source = document.get("source") or "unknown"
+            click.echo(f"- [{source}] {title}")
+            if document.get("body"):
+                click.echo(f"  {document['body']}")
+            if document.get("raw_json"):
+                raw_json = json.dumps(document["raw_json"], indent=2, sort_keys=True, default=str)
+                click.echo(f"  raw_json: {raw_json}")
+        return
+
+    click.echo(json.dumps(documents, indent=2, sort_keys=True, default=str))
+
+
+async def _inspect_company(name_or_ticker: str, limit: int = 10) -> list[dict]:
+    from db.session import AsyncSessionLocal
+    from resolution.ticker_resolver import resolve_interactive
+    import sqlalchemy as sa
+
+    async with AsyncSessionLocal() as session:
+        ticker = await resolve_interactive(name_or_ticker, session)
+        if not ticker:
+            raise click.ClickException(
+                f"Could not resolve '{name_or_ticker}'. Use 'python cli.py add <company>' first."
+            )
+
+        rows = await session.execute(
+            sa.text(
+                """
+                SELECT
+                    rd.id,
+                    dc.ticker,
+                    rd.source,
+                    rd.source_subtype,
+                    rd.title,
+                    rd.body,
+                    rd.published_at,
+                    rd.retrieved_at,
+                    rd.raw_json
+                FROM raw_documents rd
+                JOIN document_companies dc ON dc.document_id = rd.id
+                WHERE dc.ticker = :ticker
+                ORDER BY rd.id DESC
+                LIMIT :limit
+                """
+            ),
+            {"ticker": ticker, "limit": max(limit, 1)},
+        )
+
+        documents = []
+        for row in rows:
+            documents.append({
+                "id": row.id,
+                "ticker": row.ticker,
+                "source": row.source,
+                "source_subtype": row.source_subtype,
+                "title": row.title,
+                "body": row.body,
+                "published_at": row.published_at.isoformat() if row.published_at else None,
+                "retrieved_at": row.retrieved_at.isoformat() if row.retrieved_at else None,
+                "raw_json": row.raw_json,
+            })
+
+    return documents
 
 
 @cli.command("analyze")

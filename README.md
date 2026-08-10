@@ -68,6 +68,11 @@ The project combines:
    python cli.py analyze "Apple"
    ```
 
+9. Inspect the raw ingested documents stored for a company.
+   ```bash
+   python cli.py inspect "Apple" --limit 5
+   ```
+
 ## Configuration
 
 The application reads configuration from `.env` (via `pydantic-settings`). The key values are:
@@ -152,6 +157,20 @@ Examples:
 ```bash
 python cli.py analyze "Apple"
 python cli.py analyze AAPL --fresh
+```
+
+### `inspect <company>`
+
+Retrieves the locally stored ingested documents for a company directly from the database.
+
+Options:
+- `--limit <n>` – maximum number of documents to return (default: 10)
+- `--text` – render the documents as a human-readable summary instead of JSON
+
+Examples:
+```bash
+python cli.py inspect "Apple"
+python cli.py inspect AAPL --limit 5 --text
 ```
 
 ### `run`

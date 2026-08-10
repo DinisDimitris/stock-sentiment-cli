@@ -241,3 +241,4 @@ deduplication/__pycache__/deduplicator.cpython-314.pyc
 deduplication/__pycache__/deduplicator.cpython-314.pyc
 tests/__pycache__/test_deduplicator.cpython-314-pytest-9.1.1.pyc
 __pycache__/
+logs

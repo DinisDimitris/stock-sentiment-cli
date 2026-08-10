@@ -1,3 +1,4 @@
+import json
 import logging
 from unittest.mock import AsyncMock, patch
 
@@ -84,3 +85,48 @@ def test_run_once_can_disable_analysis():
     assert result.exit_code == 0, result.output
     assert fake_run_once.await_count == 1
     assert fake_run_once.await_args.kwargs["run_analysis"] is False
+
+
+def test_inspect_company_outputs_json_payloads():
+    runner = CliRunner()
+    sample_documents = [{
+        "id": 42,
+        "ticker": "AAPL",
+        "source": "news",
+        "source_subtype": "article",
+        "title": "Apple announces new hardware",
+        "body": "A body",
+        "published_at": "2026-08-10T00:00:00+00:00",
+        "retrieved_at": "2026-08-10T00:00:00+00:00",
+        "raw_json": {"score": 7, "url": "https://example.com/1"},
+    }]
+
+    with patch("cli._inspect_company", new=AsyncMock(return_value=sample_documents)):
+        result = runner.invoke(cli.cli, ["inspect", "Apple", "--limit", "1"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload[0]["source"] == "news"
+    assert payload[0]["raw_json"]["score"] == 7
+
+
+def test_inspect_company_can_use_text_mode():
+    runner = CliRunner()
+    sample_documents = [{
+        "id": 7,
+        "ticker": "MSFT",
+        "source": "social",
+        "source_subtype": "post",
+        "title": "Microsoft update",
+        "body": "A post",
+        "published_at": None,
+        "retrieved_at": None,
+        "raw_json": {"score": 3},
+    }]
+
+    with patch("cli._inspect_company", new=AsyncMock(return_value=sample_documents)):
+        result = runner.invoke(cli.cli, ["inspect", "MSFT", "--text"])
+
+    assert result.exit_code == 0, result.output
+    assert "Microsoft update" in result.output
+    assert "social" in result.output
