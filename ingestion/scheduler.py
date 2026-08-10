@@ -173,27 +173,33 @@ async def _run_transcripts() -> None:
 
 
 async def _fast_lane_worker() -> None:
-    """Continuously drain CRITICAL tasks."""
+    consecutive_errors = 0
     while True:
         try:
             found = await process_next_task(priority_filter="CRITICAL")
+            consecutive_errors = 0
             if not found:
                 await asyncio.sleep(5)
         except Exception as exc:
-            logger.error("[worker/fast] %s", exc)
-            await asyncio.sleep(5)
+            consecutive_errors += 1
+            backoff = min(5 * 2 ** consecutive_errors, 300)  # cap at 5 min
+            logger.error("[worker/fast] %s (retry in %ds)", exc, backoff)
+            await asyncio.sleep(backoff)
 
 
 async def _slow_lane_worker() -> None:
-    """Continuously drain STANDARD tasks."""
+    consecutive_errors = 0
     while True:
         try:
             found = await process_next_task(priority_filter=None)
+            consecutive_errors = 0
             if not found:
                 await asyncio.sleep(15)
         except Exception as exc:
-            logger.error("[worker/slow] %s", exc)
-            await asyncio.sleep(15)
+            consecutive_errors += 1
+            backoff = min(15 * 2 ** consecutive_errors, 300)  # cap at 5 min
+            logger.error("[worker/slow] %s (retry in %ds)", exc, backoff)
+            await asyncio.sleep(backoff)
 
 
 def build_scheduler(

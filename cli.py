@@ -133,6 +133,23 @@ async def _db_init():
 
     click.echo("[db-init] Done.")
 
+async def _ensure_db_ready() -> None:
+    """Raise ClickException with a clear message if migrations have not been run."""
+    import sqlalchemy as sa
+    from db.session import AsyncSessionLocal
+
+    required_tables = ["companies", "task_queue", "raw_documents"]
+    try:
+        async with AsyncSessionLocal() as session:
+            for table in required_tables:
+                await session.execute(
+                    sa.text(f"SELECT 1 FROM {table} LIMIT 0")
+                )
+    except Exception:
+        raise click.ClickException(
+            "Database is not initialised — required tables are missing.\n"
+            "Run 'python cli.py db-init' first, then retry."
+        )
 
 async def _seed_source_tiers():
     import yaml
@@ -378,7 +395,7 @@ def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log
 async def _run_once(email_tos: tuple[str, ...] = (), run_analysis: bool = True):
     from ingestion.scheduler import _run_ingestion_cycle
     from processing.model_registry import load_models
-
+    await _ensure_db_ready()
     click.echo("[run] Loading models...")
     load_models()
     click.echo("[run] Running one ingestion cycle...")
@@ -388,6 +405,7 @@ async def _run_once(email_tos: tuple[str, ...] = (), run_analysis: bool = True):
 
 async def _run_daemon(interval_minutes: int | None = None, email_tos: tuple[str, ...] = (), run_analysis: bool = True):
     from ingestion.scheduler import run_daemon
+    await _ensure_db_ready()
     if interval_minutes is None:
         click.echo("[run] Starting ingestion daemon. Press Ctrl+C to stop.")
     else:
