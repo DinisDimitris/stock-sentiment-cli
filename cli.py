@@ -299,6 +299,7 @@ async def _analyze(name_or_ticker: str, force_refresh: bool):
     from db.session import AsyncSessionLocal
     from resolution.ticker_resolver import resolve_interactive
     from output.formatter import render_summary
+    from output.persistence import write_analysis_output
 
     try:
         from agent.review_agent import run_review
@@ -321,6 +322,8 @@ async def _analyze(name_or_ticker: str, force_refresh: bool):
         result = await run_review(ticker, force_refresh=force_refresh)
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
+    output_paths = write_analysis_output(result)
+    click.echo(f"[analyze] Saved analysis output to {output_paths[0].parent}")
     render_summary(result)
 
 
@@ -343,7 +346,14 @@ async def _analyze(name_or_ticker: str, force_refresh: bool):
     type=click.Path(dir_okay=False, writable=True, path_type=str),
     help="Write logs to a file in addition to stderr",
 )
-def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log_file: str | None):
+@click.option(
+    "--analysis/--no-analysis",
+    "run_analysis",
+    default=True,
+    show_default=True,
+    help="Run company analysis during each ingestion cycle.",
+)
+def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log_file: str | None, run_analysis: bool):
     """Start the ingestion and processing daemon."""
     from config.settings import settings
 
@@ -360,29 +370,34 @@ def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log
         configured_recipients = [recipient.strip() for recipient in settings.email_to.split(",") if recipient.strip()]
 
     if once:
-        asyncio.run(_run_once(email_tos=tuple(configured_recipients)))
+        asyncio.run(_run_once(email_tos=tuple(configured_recipients), run_analysis=run_analysis))
     else:
-        asyncio.run(_run_daemon(interval_minutes=interval_minutes, email_tos=tuple(configured_recipients)))
+        asyncio.run(_run_daemon(interval_minutes=interval_minutes, email_tos=tuple(configured_recipients), run_analysis=run_analysis))
 
 
-async def _run_once(email_tos: tuple[str, ...] = ()):
+async def _run_once(email_tos: tuple[str, ...] = (), run_analysis: bool = True):
     from ingestion.scheduler import _run_ingestion_cycle
     from processing.model_registry import load_models
 
     click.echo("[run] Loading models...")
     load_models()
     click.echo("[run] Running one ingestion cycle...")
-    await _run_ingestion_cycle(output_callback=click.echo, email_recipients=list(email_tos))
+    await _run_ingestion_cycle(output_callback=click.echo, email_recipients=list(email_tos), run_analysis=run_analysis)
     click.echo("[run] Done.")
 
 
-async def _run_daemon(interval_minutes: int | None = None, email_tos: tuple[str, ...] = ()):
+async def _run_daemon(interval_minutes: int | None = None, email_tos: tuple[str, ...] = (), run_analysis: bool = True):
     from ingestion.scheduler import run_daemon
     if interval_minutes is None:
         click.echo("[run] Starting ingestion daemon. Press Ctrl+C to stop.")
     else:
         click.echo(f"[run] Starting ingestion daemon with a {interval_minutes}-minute interval. Press Ctrl+C to stop.")
-    await run_daemon(interval_minutes=interval_minutes, output_callback=click.echo, email_recipients=list(email_tos))
+    await run_daemon(
+        interval_minutes=interval_minutes,
+        output_callback=click.echo,
+        email_recipients=list(email_tos),
+        run_analysis=run_analysis,
+    )
 
 
 if __name__ == "__main__":

@@ -80,6 +80,7 @@ The application reads configuration from `.env` (via `pydantic-settings`). The k
 - `FMP_API_KEY` – optional fallback for earnings transcript sources
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` – optional SMTP configuration for summary emails
 - `EMAIL_TO` – default comma-separated recipient list for emailed summaries
+- `ANALYSIS_OUTPUT_DIR` – directory used for per-company analysis exports
 
 You can inspect the defaults in `.env.example`.
 
@@ -162,6 +163,7 @@ Options:
   - numeric intervals such as `15m`, `1h`, `2h`, `2d`, `2w`
   - named values such as `hourly`, `daily`, `weekly`, `biweekly`
   - human-readable phrases such as `2 weeks`
+- `--analysis / --no-analysis` – enable or disable analysis during each ingestion cycle.
 - `--email-to <address>` – send the generated analysis summary to one or more recipients using the configured SMTP settings. Repeat the flag to provide multiple recipients.
 - `--log-file <path>` – write logs to a file in addition to standard error.
 
@@ -173,6 +175,7 @@ python cli.py run --interval 1h
 python cli.py run --interval daily
 python cli.py run --interval weekly
 python cli.py run --interval "2 weeks"
+python cli.py run --no-analysis
 python cli.py run --once --log-file ./stock-sentiment.log
 python cli.py run --once --email-to ops@example.com
 ```
@@ -194,5 +197,6 @@ uvicorn api.app:app --reload
 ## Notes
 
 - The ingestion daemon only processes companies that have been added to the watchlist.
+- Analysis results are stored in the database (`analysis_runs`) and exported to `output/analysis/<ticker>/` by default.
 - If no API keys are configured, the pipeline will still start, but some data sources may skip ingestion or return partial results.
 - `db-init` will fail fast if Alembic migrations do not complete successfully.

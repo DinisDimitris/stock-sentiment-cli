@@ -19,14 +19,17 @@ class Settings(BaseSettings):
     
     open_ai_api_key: str = Field(default="")
     open_ai_endpoint: str = "https://models.inference.ai.azure.com"
-    github_models_default: str = "gpt-4o-mini"
-    github_models_escalation: str = "meta-llama-3.1-70b-instruct"
+    github_models_default: str = Field(default="")
+    github_models_escalation: str = Field(default="")
 
     # Agent cache TTL in seconds (6 hours)
     agent_cache_ttl: int = 21600
 
     # Macro overlay weight (15% macro, 85% company-specific)
     macro_weight: float = 0.15
+
+    # Local filesystem location for analysis exports
+    analysis_output_dir: str = Field(default="output/analysis")
 
     # Optional SMTP settings for emailing generated summaries
     smtp_host: str = Field(default="")

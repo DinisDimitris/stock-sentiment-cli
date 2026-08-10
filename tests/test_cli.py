@@ -46,6 +46,7 @@ def test_run_accepts_interval_and_passes_it_to_daemon():
     assert result.exit_code == 0, result.output
     assert fake_run_daemon.await_count == 1
     assert fake_run_daemon.await_args.kwargs["interval_minutes"] == 14 * 24 * 60
+    assert fake_run_daemon.await_args.kwargs["run_analysis"] is True
 
 
 def test_run_accepts_email_recipient_option():
@@ -58,3 +59,28 @@ def test_run_accepts_email_recipient_option():
     assert result.exit_code == 0, result.output
     assert fake_run_daemon.await_count == 1
     assert fake_run_daemon.await_args.kwargs["email_tos"] == ("ops@example.com",)
+    assert fake_run_daemon.await_args.kwargs["run_analysis"] is True
+
+
+def test_run_can_disable_analysis():
+    runner = CliRunner()
+    fake_run_daemon = AsyncMock(return_value=None)
+
+    with patch("cli._run_daemon", new=fake_run_daemon):
+        result = runner.invoke(cli.cli, ["run", "--no-analysis"])
+
+    assert result.exit_code == 0, result.output
+    assert fake_run_daemon.await_count == 1
+    assert fake_run_daemon.await_args.kwargs["run_analysis"] is False
+
+
+def test_run_once_can_disable_analysis():
+    runner = CliRunner()
+    fake_run_once = AsyncMock(return_value=None)
+
+    with patch("cli._run_once", new=fake_run_once):
+        result = runner.invoke(cli.cli, ["run", "--once", "--no-analysis"])
+
+    assert result.exit_code == 0, result.output
+    assert fake_run_once.await_count == 1
+    assert fake_run_once.await_args.kwargs["run_analysis"] is False

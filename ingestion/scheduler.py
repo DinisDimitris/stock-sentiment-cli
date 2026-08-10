@@ -29,6 +29,7 @@ from ingestion.sources.stocktwits import StockTwitsSource
 from ingestion.sources.fred import fetch_and_store_indicators
 from ingestion.sources.federal_reserve import FederalReserveSource
 from output.formatter import format_summary_text
+from output.persistence import write_analysis_output
 from processing.worker import process_next_task
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,7 @@ async def _run_analysis_cycle(output_callback: Callable[[str], None] | None = No
         try:
             result = await run_review(ticker)
             results.append(result)
+            write_analysis_output(result)
             if output_callback:
                 output_callback(format_summary_text(result))
             else:
@@ -148,10 +150,17 @@ async def _run_analysis_cycle(output_callback: Callable[[str], None] | None = No
     return results
 
 
-async def _run_ingestion_cycle(output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> None:
+async def _run_ingestion_cycle(
+    output_callback: Callable[[str], None] | None = None,
+    email_recipients: list[str] | None = None,
+    run_analysis: bool = True,
+) -> None:
     await _run_fast_sources()
     await _run_slow_sources()
-    await _run_analysis_cycle(output_callback=output_callback, email_recipients=email_recipients)
+    if run_analysis:
+        await _run_analysis_cycle(output_callback=output_callback, email_recipients=email_recipients)
+    else:
+        logger.info("[scheduler] Analysis disabled for this ingestion cycle")
 
 
 async def _run_transcripts() -> None:
@@ -187,12 +196,22 @@ async def _slow_lane_worker() -> None:
             await asyncio.sleep(15)
 
 
-def build_scheduler(interval_minutes: int | None = None, output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> AsyncIOScheduler:
+def build_scheduler(
+    interval_minutes: int | None = None,
+    output_callback: Callable[[str], None] | None = None,
+    email_recipients: list[str] | None = None,
+    run_analysis: bool = True,
+) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
 
     cadence_minutes = 15 if interval_minutes is None else interval_minutes
     scheduler.add_job(
-        partial(_run_ingestion_cycle, output_callback=output_callback, email_recipients=email_recipients),
+        partial(
+            _run_ingestion_cycle,
+            output_callback=output_callback,
+            email_recipients=email_recipients,
+            run_analysis=run_analysis,
+        ),
         IntervalTrigger(minutes=cadence_minutes),
         id="ingestion_cycle",
         max_instances=1,
@@ -208,12 +227,22 @@ def build_scheduler(interval_minutes: int | None = None, output_callback: Callab
     return scheduler
 
 
-async def run_daemon(interval_minutes: int | None = None, output_callback: Callable[[str], None] | None = None, email_recipients: list[str] | None = None) -> None:
+async def run_daemon(
+    interval_minutes: int | None = None,
+    output_callback: Callable[[str], None] | None = None,
+    email_recipients: list[str] | None = None,
+    run_analysis: bool = True,
+) -> None:
     """Start the ingestion daemon with fast and slow lane workers."""
     from processing.model_registry import load_models
     load_models()
 
-    scheduler = build_scheduler(interval_minutes=interval_minutes, output_callback=output_callback, email_recipients=email_recipients)
+    scheduler = build_scheduler(
+        interval_minutes=interval_minutes,
+        output_callback=output_callback,
+        email_recipients=email_recipients,
+        run_analysis=run_analysis,
+    )
     scheduler.start()
 
     # Start worker pools
@@ -230,6 +259,8 @@ async def run_daemon(interval_minutes: int | None = None, output_callback: Calla
         await asyncio.gather(*workers)
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("[scheduler] Shutting down...")
-        scheduler.shutdown()
+    finally:
+        scheduler.shutdown(wait=False)
         for w in workers:
             w.cancel()
+        await asyncio.gather(*workers, return_exceptions=True)
