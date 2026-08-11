@@ -51,7 +51,7 @@ def test_load_models_passes_selected_device_to_transformers_pipeline(monkeypatch
     model_registry._registry.clear()
 
     with patch.dict(sys.modules, {"transformers": fake_transformers}):
-        model_registry.load_models()
+        report = model_registry.load_models()
 
     assert fake_pipeline.call_count == 4
     assert all(call.kwargs["device"] == -1 for call in fake_pipeline.call_args_list)
@@ -61,3 +61,32 @@ def test_load_models_passes_selected_device_to_transformers_pipeline(monkeypatch
         "finbert_fls",
         "finbert_esg",
     }
+    assert report["device"] == "cpu"
+    assert report["total"] == 4
+    assert len(report["loaded"]) == 4
+    assert len(report["failed"]) == 0
+
+
+def test_load_models_reports_partial_failures(monkeypatch):
+    def fake_pipeline(*args, **kwargs):
+        model_id = kwargs["model"]
+        if model_id == "yiyanghkust/finbert-tone":
+            raise ValueError("missing model_type")
+        return "pipeline"
+
+    fake_transformers = SimpleNamespace(pipeline=fake_pipeline)
+    monkeypatch.delenv("FINBERT_DEVICE", raising=False)
+    monkeypatch.setattr(model_registry, "_select_pipeline_device", lambda: -1)
+
+    with patch.dict(sys.modules, {"transformers": fake_transformers}):
+        report = model_registry.load_models()
+
+    assert report["total"] == 4
+    assert len(report["loaded"]) == 3
+    assert len(report["failed"]) == 1
+    assert report["failed"][0]["key"] == "finbert_tone"
+    assert "missing model_type" in report["failed"][0]["error"]
+
+    lines = model_registry.format_startup_health_report(report)
+    assert lines[0].startswith("[health] Model startup probe: loaded 3/4")
+    assert any("Failed models:" in line for line in lines)

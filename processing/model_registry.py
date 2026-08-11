@@ -18,6 +18,15 @@ logger = logging.getLogger(__name__)
 _registry: dict[str, Any] = {}
 
 
+def _model_configs() -> dict[str, str]:
+    return {
+        "finbert_general": "ProsusAI/finbert",
+        "finbert_tone": "yiyanghkust/finbert-tone",
+        "finbert_fls": "yiyanghkust/finbert-fls",
+        "finbert_esg": "yiyanghkust/finbert-esg",
+    }
+
+
 def _read_gpu_compute_capability() -> tuple[int, int] | None:
     """Read the first NVIDIA GPU compute capability without touching Torch CUDA."""
     try:
@@ -96,21 +105,31 @@ def _select_pipeline_device(torch_module: Any | None = None) -> int:
     return 0
 
 
-def load_models() -> None:
-    """Call once at startup before any inference."""
+def load_models() -> dict[str, Any]:
+    """Call once at startup before any inference and return a health summary."""
+    report: dict[str, Any] = {
+        "device": "cpu",
+        "loaded": [],
+        "failed": [],
+        "total": 0,
+    }
+
     try:
         from transformers import pipeline
     except ImportError:
         logger.error("transformers not installed — sentiment scoring unavailable")
-        return
+        report["failed"].append({
+            "key": "all",
+            "model_id": "transformers",
+            "error": "transformers not installed",
+        })
+        report["total"] = len(_model_configs())
+        return report
 
-    model_configs = {
-        "finbert_general": "ProsusAI/finbert",
-        "finbert_tone": "yiyanghkust/finbert-tone",
-        "finbert_fls": "yiyanghkust/finbert-fls",
-        "finbert_esg": "yiyanghkust/finbert-esg",
-    }
+    model_configs = _model_configs()
     device = _select_pipeline_device()
+    report["device"] = "cuda" if device == 0 else "cpu"
+    report["total"] = len(model_configs)
 
     for key, model_id in model_configs.items():
         logger.info("[model_registry] Loading %s ...", model_id)
@@ -124,8 +143,36 @@ def load_models() -> None:
                 max_length=512,
             )
             logger.info("[model_registry] %s ready.", key)
+            report["loaded"].append({"key": key, "model_id": model_id})
         except Exception as exc:
             logger.error("[model_registry] Failed to load %s: %s", model_id, exc)
+            report["failed"].append({
+                "key": key,
+                "model_id": model_id,
+                "error": str(exc),
+            })
+
+    return report
+
+
+def format_startup_health_report(report: dict[str, Any]) -> list[str]:
+    loaded = report.get("loaded", [])
+    failed = report.get("failed", [])
+    total = report.get("total", len(loaded) + len(failed))
+    device = report.get("device", "cpu")
+
+    lines = [
+        f"[health] Model startup probe: loaded {len(loaded)}/{total} (device={device})",
+    ]
+
+    if loaded:
+        lines.append("[health] Loaded models: " + ", ".join(item["key"] for item in loaded))
+    if failed:
+        lines.append("[health] Failed models:")
+        for item in failed:
+            lines.append(f"[health] - {item['key']} ({item['model_id']}): {item['error']}")
+
+    return lines
 
 
 def get_model(key: str) -> Any:

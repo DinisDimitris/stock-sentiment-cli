@@ -483,10 +483,12 @@ def run_daemon(once: bool, interval: str | None, email_tos: tuple[str, ...], log
 
 async def _run_once(email_tos: tuple[str, ...] = (), run_analysis: bool = True):
     from ingestion.scheduler import _run_ingestion_cycle
-    from processing.model_registry import load_models
+    from processing.model_registry import load_models, format_startup_health_report
     await _ensure_db_ready()
     click.echo("[run] Loading models...")
-    load_models()
+    report = load_models()
+    for line in format_startup_health_report(report):
+        click.echo(line)
     click.echo("[run] Running one ingestion cycle...")
     await _run_ingestion_cycle(output_callback=click.echo, email_recipients=list(email_tos), run_analysis=run_analysis)
     click.echo("[run] Done.")

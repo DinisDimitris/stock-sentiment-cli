@@ -214,6 +214,67 @@ If you want to run the API locally, use:
 uvicorn api.app:app --reload
 ```
 
+## Running as a long-lived service on Raspberry Pi
+
+For a stable background process that survives logout/reboot and keeps logs manageable, use `systemd` with `journald` rather than `&`.
+
+This repository includes user-service unit templates in `ops/systemd/`:
+- `stock-sentiment-daemon.service` (always-on process, uses `run --interval daily`)
+- `stock-sentiment-once.service` + `stock-sentiment-once.timer` (scheduled one-shot run once per day)
+
+### 1) Install user units
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp ops/systemd/*.service ~/.config/systemd/user/
+cp ops/systemd/*.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+```
+
+Enable lingering so user services continue after logout:
+
+```bash
+sudo loginctl enable-linger "$USER"
+```
+
+### 2) Pick one runtime mode
+
+Option A: always-on daemon (recommended when you want queue workers always active)
+
+```bash
+systemctl --user enable --now stock-sentiment-daemon.service
+```
+
+Option B: scheduled one-shot run daily (recommended when you only need one daily batch)
+
+```bash
+systemctl --user enable --now stock-sentiment-once.timer
+```
+
+If switching modes, disable the other one first.
+
+### 3) View logs and status
+
+```bash
+systemctl --user status stock-sentiment-daemon.service
+journalctl --user -u stock-sentiment-daemon.service -f
+journalctl --user -u stock-sentiment-once.service -n 200 --no-pager
+```
+
+### 4) Stop/disable
+
+```bash
+systemctl --user stop stock-sentiment-daemon.service
+systemctl --user disable stock-sentiment-daemon.service
+
+systemctl --user stop stock-sentiment-once.timer
+systemctl --user disable stock-sentiment-once.timer
+```
+
+Notes:
+- `journald` handles log rotation/retention, so you do not need to implement application-level file rotation first.
+- If your project path is not `~/homelab/stock-sentiment-cli`, edit `WorkingDirectory` and `ExecStart` in the unit files before enabling them.
+
 ## Notes
 
 - The ingestion daemon only processes companies that have been added to the watchlist.

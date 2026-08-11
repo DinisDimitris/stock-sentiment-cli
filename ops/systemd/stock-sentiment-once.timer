@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Sentiment daily timer (one-shot run)
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=5m
+Persistent=true
+Unit=stock-sentiment-once.service
+
+[Install]
+WantedBy=timers.target

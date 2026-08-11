@@ -1,0 +1,14 @@
+[Unit]
+Description=Stock Sentiment daemon (continuous scheduler)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/homelab/stock-sentiment-cli
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/homelab/stock-sentiment-cli/.venv/bin/python cli.py run --interval daily
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

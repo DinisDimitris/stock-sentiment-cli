@@ -1,0 +1,9 @@
+[Unit]
+Description=Stock Sentiment one-shot ingestion run
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/homelab/stock-sentiment-cli
+Environment=PYTHONUNBUFFERED=1
+ExecStart=%h/homelab/stock-sentiment-cli/.venv/bin/python cli.py run --once

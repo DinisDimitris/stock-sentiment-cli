@@ -242,8 +242,11 @@ async def run_daemon(
     run_analysis: bool = True,
 ) -> None:
     """Start the ingestion daemon with fast and slow lane workers."""
-    from processing.model_registry import load_models
-    load_models()
+    from processing.model_registry import load_models, format_startup_health_report
+    report = load_models()
+    if output_callback:
+        for line in format_startup_health_report(report):
+            output_callback(line)
 
     scheduler = build_scheduler(
         interval_minutes=interval_minutes,
