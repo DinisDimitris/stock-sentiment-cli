@@ -21,6 +21,7 @@ requests>=2.31
 
 # Utilities
 apscheduler>=3.10
+tzdata>=2024.1
 python-dotenv>=1.0
 pydantic>=2.0
 pydantic-settings>=2.0

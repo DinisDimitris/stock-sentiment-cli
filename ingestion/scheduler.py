@@ -34,6 +34,8 @@ from processing.worker import process_next_task
 
 logger = logging.getLogger(__name__)
 
+MARKET_TIMEZONE = "America/New_York"
+
 SLOW_SOURCES = [
     CompanyIRSource(),
     YahooFinanceSource(),
@@ -225,10 +227,10 @@ def build_scheduler(
     logger.info("[scheduler] Started. Ingestion cycle every %s minutes.", cadence_minutes)
 
     # Earnings transcripts: daily at 6AM ET
-    scheduler.add_job(_run_transcripts, CronTrigger(hour=6, minute=0, timezone="US/Eastern"), id="transcripts")
+    scheduler.add_job(_run_transcripts, CronTrigger(hour=6, minute=0, timezone=MARKET_TIMEZONE), id="transcripts")
 
     # FRED macro data: daily at 9AM ET
-    scheduler.add_job(fetch_and_store_indicators, CronTrigger(hour=9, minute=0, timezone="US/Eastern"), id="fred")
+    scheduler.add_job(fetch_and_store_indicators, CronTrigger(hour=9, minute=0, timezone=MARKET_TIMEZONE), id="fred")
 
     return scheduler
 
