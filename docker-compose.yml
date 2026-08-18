@@ -2,7 +2,14 @@ version: "3.9"
 
 services:
   db:
+    container_name: stock-sentiment-db
+    hostname: stock-sentiment-db
     image: timescale/timescaledb:latest-pg16
+    restart: unless-stopped
+    networks:
+      frontend:
+        aliases:
+          - stock-sentiment-db
     environment:
       POSTGRES_USER: sentiment
       POSTGRES_PASSWORD: sentiment
@@ -16,6 +23,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      
+networks:
+  frontend:
+    external: true
 
 volumes:
   pgdata:

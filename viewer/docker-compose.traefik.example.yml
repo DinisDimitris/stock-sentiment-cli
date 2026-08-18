@@ -1,0 +1,30 @@
+services:
+  analysis-viewer:
+    container_name: stock-analysis-viewer
+    image: python:3.12-alpine
+    restart: unless-stopped
+    working_dir: /app/viewer
+    command: ["python", "app.py"]
+    volumes:
+      - .:/app/viewer:ro
+      - ../output/analysis:/analysis:ro
+    ports:
+      - "8010:8000"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.stock-analysis.rule=Host(`my.host.com`)
+      - traefik.http.routers.stock-analysis.entrypoints=web
+      - traefik.http.routers.stock-analysis.middlewares=stock-analysis-https-redirect
+      - traefik.http.middlewares.stock-analysis-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.stock-analysis-https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.stock-analysis-https.rule=Host(`my.host.com`)
+      - traefik.http.routers.stock-analysis-https.entrypoints=websecure
+      - traefik.http.routers.stock-analysis-https.tls=true
+      - traefik.http.routers.stock-analysis-https.tls.certresolver=cloudflare
+      - traefik.http.services.stock-analysis.loadbalancer.server.port=8000
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    external: true
