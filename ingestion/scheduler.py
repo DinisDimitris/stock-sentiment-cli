@@ -134,7 +134,13 @@ async def _run_analysis_cycle(output_callback: Callable[[str], None] | None = No
     results = []
     for ticker in tickers:
         try:
-            result = await run_review(ticker)
+            # The scheduled run should always refresh the model output for the current
+            # ticker. Reusing the cache here makes the daemon silently produce stale or
+            # failed prior results, which is especially problematic when a previous
+            # API call returned a 404 fallback.
+            result = await run_review(ticker, force_refresh=True)
+            if result.get("summary") and "Agent analysis unavailable" in result.get("summary", ""):
+                logger.warning("[scheduler/analysis] %s returned a failed agent reply; skipping cache reuse for this run", ticker)
             results.append(result)
             write_analysis_output(result)
             if output_callback:

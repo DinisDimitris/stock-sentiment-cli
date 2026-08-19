@@ -12,6 +12,12 @@ from ingestion.base_source import BaseSource
 
 logger = logging.getLogger(__name__)
 BASE_URL = "https://api.stocktwits.com/api/2"
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://stocktwits.com/",
+}
 
 
 class StockTwitsSource(BaseSource):
@@ -19,10 +25,15 @@ class StockTwitsSource(BaseSource):
 
     async def fetch(self, ticker: str) -> list[dict[str, Any]]:
         url = f"{BASE_URL}/streams/symbol/{ticker}.json"
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(url)
-            r.raise_for_status()
-            return r.json().get("messages", [])
+        async with httpx.AsyncClient(timeout=10, headers=BROWSER_HEADERS) as client:
+            try:
+                r = await client.get(url)
+                r.raise_for_status()
+                return r.json().get("messages", [])
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 403:
+                    logger.warning("[stocktwits] 403 from %s using browser-like headers; source may be blocking automated clients for %s", url, ticker)
+                raise
 
     def parse(self, raw_item: dict[str, Any]) -> dict[str, Any]:
         pub_at = None

@@ -214,7 +214,7 @@ If you want to run the API locally, use:
 uvicorn api.app:app --reload
 ```
 
-## Running as a long-lived service on Raspberry Pi
+## Running as a long-lived service (Linux)
 
 For a stable background process that survives logout/reboot and keeps logs manageable, use `systemd` with `journald` rather than `&`.
 
@@ -238,6 +238,18 @@ sudo loginctl enable-linger "$USER"
 ```
 
 ### 2) Pick one runtime mode
+
+After editing Python source or configuration, the running daemon does not hot-reload code. Restart it to apply the latest changes:
+
+```bash
+systemctl --user restart stock-sentiment-daemon.service
+```
+
+If you changed the systemd unit file itself, reload the unit definitions first:
+
+```bash
+systemctl --user daemon-reload
+```
 
 Option A: always-on daemon (recommended when you want queue workers always active)
 

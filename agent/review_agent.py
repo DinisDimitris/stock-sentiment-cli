@@ -36,6 +36,8 @@ async def run_review(ticker: str, force_refresh: bool = False) -> dict:
             return cached
 
     context = await build_context(ticker)
+    if not context:
+        raise RuntimeError(f"No context available for {ticker}; cannot run review")
     context_json = json.dumps(context, indent=2, default=str)
 
     # Step 1: Conflict detection
@@ -66,6 +68,10 @@ async def run_review(ticker: str, force_refresh: bool = False) -> dict:
         "document_count_7d": context.get("document_count_7d", 0),
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
     }
+
+    if result.get("summary") and "Agent analysis unavailable" in result.get("summary", ""):
+        logger.warning("[agent] skipping cache write for %s because the model response was unavailable", ticker)
+        return result
 
     await _store_result(ticker, result, context)
     return result
