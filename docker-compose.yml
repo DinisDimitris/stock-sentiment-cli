@@ -1,32 +1,22 @@
-version: "3.9"
-
 services:
   db:
     container_name: stock-sentiment-db
     hostname: stock-sentiment-db
     image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
-    networks:
-      frontend:
-        aliases:
-          - stock-sentiment-db
     environment:
-      POSTGRES_USER: sentiment
-      POSTGRES_PASSWORD: sentiment
-      POSTGRES_DB: stocksentiment
+      POSTGRES_USER: ${POSTGRES_USER:-sentiment}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentiment}
+      POSTGRES_DB: ${POSTGRES_DB:-stocksentiment}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentiment -d stocksentiment"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentiment} -d ${POSTGRES_DB:-stocksentiment}"]
       interval: 5s
       timeout: 5s
       retries: 10
-      
-networks:
-  frontend:
-    external: true
 
 volumes:
   pgdata:

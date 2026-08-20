@@ -1,5 +1,5 @@
 """
-Three-step agentic review chain using GitHub Models API (GPT-4o-mini, free).
+Three-step agentic review chain using OpenAI or Anthropic.
 Results cached per ticker for 6 hours. Invalidated on CRITICAL fast-lane events.
 """
 
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import sqlalchemy as sa
 
 from agent.context_builder import build_context
-from agent.github_models_client import get_client
+from agent.llm_client import get_client, get_default_model, get_escalation_model
 from agent.prompts import (
     STEP1_CONFLICT_SYSTEM, STEP1_CONFLICT_USER,
     STEP2_SYNTHESIS_SYSTEM, STEP2_SYNTHESIS_USER,
@@ -86,7 +86,7 @@ async def _step1_conflicts(context: dict, context_json: str) -> list[dict]:
     )
     try:
         resp = await client.chat.completions.create(
-            model=settings.github_models_default,
+            model=get_default_model(),
             messages=[
                 {"role": "system", "content": STEP1_CONFLICT_SYSTEM},
                 {"role": "user", "content": prompt},
@@ -112,11 +112,11 @@ async def _step2_synthesis(
     # Escalate to larger model if many high-severity conflicts
     high_conflicts = [c for c in conflicts if c.get("severity") == "HIGH"]
     model = (
-        settings.github_models_escalation
+        get_escalation_model()
         if len(conflicts) > 3 or len(high_conflicts) > 1
-        else settings.github_models_default
+        else get_default_model()
     )
-    if model == settings.github_models_escalation:
+    if model == get_escalation_model():
         logger.info("[agent] step2: escalating to %s", model)
 
     prompt = STEP2_SYNTHESIS_USER.format(

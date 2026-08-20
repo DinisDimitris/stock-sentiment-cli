@@ -10,7 +10,7 @@ torch>=2.2
 nltk>=3.8
 simhash>=2.1
 
-# LLM (GitHub Models API — OpenAI-compatible)
+# LLM clients
 openai>=1.30
 
 # Data ingestion
@@ -28,6 +28,7 @@ pydantic-settings>=2.0
 rapidfuzz>=3.6      # fuzzy ticker name matching
 rich>=13.7          # terminal output formatting
 click>=8.1          # CLI
+pytest>=8.0         # test runner
 
 # API
 fastapi>=0.111

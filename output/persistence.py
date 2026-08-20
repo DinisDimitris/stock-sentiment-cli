@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from config.settings import settings
+
 
 def write_analysis_output(result: dict, base_dir: str | Path | None = None) -> list[Path]:
     ticker = result.get("ticker")
     if not ticker:
         raise ValueError("result must include a ticker")
 
-    root_dir = Path(base_dir) if base_dir is not None else Path("output") / "analysis"
+    root_dir = Path(base_dir) if base_dir is not None else Path(settings.analysis_output_dir)
     company_dir = root_dir / ticker
     company_dir.mkdir(parents=True, exist_ok=True)
 
