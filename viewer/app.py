@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-ANALYSIS_DIR = Path(os.environ.get("ANALYSIS_DIR", "/analysis")).resolve()
+DEFAULT_ANALYSIS_DIR = ROOT.parent / "output" / "analysis"
+ANALYSIS_DIR = Path(os.environ.get("ANALYSIS_DIR", str(DEFAULT_ANALYSIS_DIR))).resolve()
+VIEWER_PORT = int(os.environ.get("VIEWER_PORT", "8000"))
 
 
 def iso_timestamp(value: float | None = None) -> str:
@@ -120,7 +122,7 @@ class StockAnalysisHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    server = ThreadingHTTPServer(("0.0.0.0", 8000), StockAnalysisHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", VIEWER_PORT), StockAnalysisHandler)
     server.serve_forever()
 
 

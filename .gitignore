@@ -243,3 +243,4 @@ tests/__pycache__/test_deduplicator.cpython-314-pytest-9.1.1.pyc
 __pycache__/
 logs
 viewer/docker-compose.yml
+my-dockercompose.yml

@@ -1,228 +1,196 @@
-# stock-sentiment
+# Stock Sentiment
 
-Stock Sentiment is a Python pipeline for collecting financial and social signals, processing them into normalized documents, and generating sentiment-aware summaries for watched companies.
+A tool for managing investment portfolios directly from your CLI. Run it directly, add it as a plugin to your favourite harnes or run it as a daily service.
 
-The project combines:
-- ingestion adapters for SEC filings, earnings materials, news, Reddit, social platforms, and macro data,
-- a processing pipeline for preprocessing, chunking, deduplication, and scoring,
-- a CLI for managing a watchlist and kicking off ingestion/anomaly analysis,
-- an optional API layer for serving results.
+![Analysis run](docs/analysis.png)
 
-## Project layout
+Stock Sentiment turns a noisy stream of filings, transcripts, news, macro signals, and social chatter into a compact investment brief you can actually act on.
 
-- `cli.py` – main command-line interface
-- `ingestion/` – source adapters and scheduling
-- `processing/` – text preprocessing, chunking, routing, and worker execution
-- `aggregation/` – scoring and macro overlay logic
-- `db/` – SQLAlchemy models and database helpers
-- `agent/` – review-agent orchestration and prompt templates
-- `output/` – rendering for analysis summaries
-- `tests/` – pytest coverage for the core pipeline components
+It is built for the exact moment when you want to answer questions like:
 
-## Prerequisites
+- What changed around this company in the last 24 hours?
+- Is the signal broad-based or just one loud source?
+- Are macro conditions reinforcing the story, or quietly fighting it?
+- What are the main drivers, risks, and contradictions right now?
 
-- Python 3.11+
-- Docker Desktop (recommended for running the local TimescaleDB instance)
-- Optional API keys for Finnhub, GitHub Models/OpenAI-compatible endpoints, Reddit, and FRED
+Instead of stopping at raw ingestion, the project stores the evidence, scores the documents, surfaces conflicts, and writes out a readable analysis bundle for each watched ticker.
+
+## See it work
+
+Inspect mode shows the raw evidence that entered the pipeline:
+
+![Inspection run](docs/inspection.png)
+
+Analysis mode turns that evidence into a sentiment brief with drivers, risks, and conflict detection:
+
+![Analysis run](docs/analysis.png)
+
+Feature rich UI view, allowing you to integrate that with your homelab for a daily visual rundown:  
+
+![UI-View](docs/ui-view.png)
+
+## What this project includes
+
+- A CLI for bootstrapping the database, managing a watchlist, running ingestion, inspecting stored documents, and generating analysis
+- An ingestion layer for SEC filings, company IR feeds, Finnhub news and transcripts, Reddit, StockTwits, Federal Reserve content, and FRED macro data
+- A processing pipeline for preprocessing, chunking, routing, deduplication, and FinBERT scoring
+- A persistence layer backed by PostgreSQL/TimescaleDB
+- An agent layer that synthesizes scored context through OpenAI or Anthropic
+- A small FastAPI wrapper for remote analysis calls
+- A static viewer that reads exported analysis bundles from disk
+- Optional SMTP delivery for summary emails
+- Systemd unit templates for long-running or scheduled Linux deployments
+
+## Why it is useful
+
+Most stock-data tools are either dashboards with shallow summaries or DIY data collectors that leave you with too much cleanup. Stock Sentiment sits between those extremes.
+
+You get a local-first pipeline that can run in a homelab, on a VPS, or beside other internal tooling. The system keeps the raw artifacts, records the intermediate sentiment signals, and exports a final opinionated summary without hiding the evidence trail.
 
 ## Quick start
 
-1. Create and activate a virtual environment.
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
+The fastest path is: create a virtualenv, set one LLM key, start the database, initialize the schema, add a ticker, and run one cycle.
 
-2. Install dependencies.
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 1. Prerequisites
 
-3. Copy the example environment file and fill in the values you want to use.
-   ```bash
-   cp .env.example .env
-   ```
+- Python 3.11+
+- Docker with Compose support
+- One LLM credential for the analysis step:
+  - `OPENAI_API_KEY`, or
+  - `ANTHROPIC_API_KEY`
+- Optional API keys for richer ingestion: Finnhub, Reddit, FRED, FMP
 
-4. Start the local database.
-   ```bash
-   docker compose up -d db
-   ```
-
-5. Initialize the database and seed the source-tier configuration.
-   ```bash
-   python cli.py db-init
-   ```
-
-6. Add a company to the watchlist.
-   ```bash
-   python cli.py add "Apple"
-   ```
-
-7. Run the ingestion workflow.
-   ```bash
-   python cli.py run --interval weekly
-   ```
-
-8. Review the analysis for a company.
-   ```bash
-   python cli.py analyze "Apple"
-   ```
-
-9. Inspect the raw ingested documents stored for a company.
-   ```bash
-   python cli.py inspect "Apple" --limit 5
-   ```
-
-## Configuration
-
-The application reads configuration from `.env` (via `pydantic-settings`). The key values are:
-
-- `DB_URL` / `DB_URL_SYNC` – PostgreSQL connection string for the main database
-- `GITHUB_PAT` – GitHub Models access token (used by the agent layer)
-- `FINNHUB_KEY` – Finnhub API key for company metadata and news lookups
-- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` – Reddit API credentials
-- `FRED_API_KEY` – API key for FRED indicator ingestion
-- `FMP_API_KEY` – optional fallback for earnings transcript sources
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM` – optional SMTP configuration for summary emails
-- `EMAIL_TO` – default comma-separated recipient list for emailed summaries
-- `ANALYSIS_OUTPUT_DIR` – directory used for per-company analysis exports
-- `FINBERT_DEVICE` – optional override for the FinBERT runtime device (`auto`, `cpu`, or `cuda`)
-
-You can inspect the defaults in `.env.example`.
-
-## CLI reference
-
-Run the CLI with:
+### 2. Install dependencies
 
 ```bash
-python cli.py --help
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### `db-init`
+### 3. Create your environment file
 
-Initializes the entire local database setup.
+```bash
+cp .env.example .env
+```
 
-What it does:
-- runs Alembic migrations (`alembic upgrade head`),
-- creates the TimescaleDB hypertables / setup objects,
-- seeds the source-tier configuration from `config/source_tiers.yaml`.
+For a first run, fill in at least one LLM provider key in `.env`.
 
-Example:
+Recommended minimal setup:
+
+```dotenv
+LLM_PROVIDER=auto
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+```
+
+Leave `LLM_PROVIDER=auto` unless you want to force a specific backend. In `auto`, the app chooses the first configured provider in this order:
+
+1. `OPENAI_API_KEY`
+2. `ANTHROPIC_API_KEY`
+
+### 4. Start TimescaleDB
+
+```bash
+docker compose up -d db
+```
+
+The included compose file now works without any pre-created external Docker network.
+
+### 5. Initialize the database
+
 ```bash
 python cli.py db-init
 ```
 
-### `add <company>`
+This does three things:
 
-Adds a company to the watchlist.
+- runs Alembic migrations
+- applies TimescaleDB setup objects
+- seeds source-tier weights from `config/source_tiers.yaml`
 
-Behavior:
-- accepts either a company name or a ticker,
-- resolves the symbol using the ticker resolver,
-- inserts the company into the database,
-- queues a backfill task so the next ingestion cycle will gather historical data.
+### 6. Add a company to the watchlist
 
-Examples:
+Using a ticker is the least ambiguous first run:
+
 ```bash
-python cli.py add "Apple"
 python cli.py add AAPL
 ```
 
-### `remove <ticker>`
+### 7. Run one ingestion cycle
 
-Removes a company from the watchlist.
-
-Example:
 ```bash
-python cli.py remove AAPL
+python cli.py run --once
 ```
 
-### `list`
+### 8. Inspect what was stored
 
-Lists the currently watched companies and their backfill state.
-
-Example:
 ```bash
-python cli.py list
-```
-
-### `analyze <company>`
-
-Runs the sentiment-analysis workflow for a company and prints the generated investment summary.
-
-Options:
-- `--fresh` – bypasses the 6-hour analysis cache and forces a fresh review.
-
-Examples:
-```bash
-python cli.py analyze "Apple"
-python cli.py analyze AAPL --fresh
-```
-
-### `inspect <company>`
-
-Retrieves the locally stored ingested documents for a company directly from the database.
-
-Options:
-- `--limit <n>` – maximum number of documents to return (default: 10)
-- `--text` – render the documents as a human-readable summary instead of JSON
-
-Examples:
-```bash
-python cli.py inspect "Apple"
 python cli.py inspect AAPL --limit 5 --text
 ```
 
-### `run`
+### 9. Generate a fresh analysis
 
-Starts the ingestion and processing workflow.
+```bash
+python cli.py analyze AAPL --fresh
+```
 
-Options:
-- `--once` – run a single ingestion cycle and exit instead of staying resident.
-- `--interval <value>` – schedule the daemon to repeat the ingestion cycle on a fixed cadence. Supported values include:
-  - numeric intervals such as `15m`, `1h`, `2h`, `2d`, `2w`
-  - named values such as `hourly`, `daily`, `weekly`, `biweekly`
-  - human-readable phrases such as `2 weeks`
-- `--analysis / --no-analysis` – enable or disable analysis during each ingestion cycle.
-- `--email-to <address>` – send the generated analysis summary to one or more recipients using the configured SMTP settings. Repeat the flag to provide multiple recipients.
-- `--log-file <path>` – write logs to a file in addition to standard error.
+The analysis bundle is written to `output/analysis/<ticker>/` by default.
 
-Examples:
+## LLM providers
+
+The synthesis stage supports two providers:
+
+- OpenAI
+- Anthropic
+
+You can either let the app auto-select based on available keys, or force one with `LLM_PROVIDER`.
+
+### OpenAI
+
+Set:
+
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_API_KEY=...
+```
+
+### Anthropic
+
+Set:
+
+```dotenv
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=...
+```
+
+Model defaults and escalation models are configurable in `.env.example`.
+
+## Runtime modes
+
+You can run the project in several ways depending on how “always-on” you want it to be.
+
+### One-shot local run
+
+Best for testing a new configuration.
+
 ```bash
 python cli.py run --once
-python cli.py run --interval 15m
-python cli.py run --interval 1h
+```
+
+### Long-running daemon
+
+Best for keeping ingestion workers alive continuously.
+
+```bash
 python cli.py run --interval daily
-python cli.py run --interval weekly
-python cli.py run --interval "2 weeks"
-python cli.py run --no-analysis
-python cli.py run --once --log-file ./stock-sentiment.log
-python cli.py run --once --email-to ops@example.com
 ```
 
-## Development and testing
+The scheduler supports values such as `15m`, `1h`, `daily`, `weekly`, and `2 weeks`.
 
-Run the test suite with:
+### Systemd user service
 
-```bash
-pytest -q
-```
-
-If you want to run the API locally, use:
-
-```bash
-uvicorn api.app:app --reload
-```
-
-## Running as a long-lived service (Linux)
-
-For a stable background process that survives logout/reboot and keeps logs manageable, use `systemd` with `journald` rather than `&`.
-
-This repository includes user-service unit templates in `ops/systemd/`:
-- `stock-sentiment-daemon.service` (always-on process, uses `run --interval daily`)
-- `stock-sentiment-once.service` + `stock-sentiment-once.timer` (scheduled one-shot run once per day)
-
-### 1) Install user units
+User-service templates live in `ops/systemd/`.
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -231,66 +199,206 @@ cp ops/systemd/*.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 ```
 
-Enable lingering so user services continue after logout:
-
-```bash
-sudo loginctl enable-linger "$USER"
-```
-
-### 2) Pick one runtime mode
-
-After editing Python source or configuration, the running daemon does not hot-reload code. Restart it to apply the latest changes:
-
-```bash
-systemctl --user restart stock-sentiment-daemon.service
-```
-
-If you changed the systemd unit file itself, reload the unit definitions first:
-
-```bash
-systemctl --user daemon-reload
-```
-
-Option A: always-on daemon (recommended when you want queue workers always active)
+Always-on mode:
 
 ```bash
 systemctl --user enable --now stock-sentiment-daemon.service
 ```
 
-Option B: scheduled one-shot run daily (recommended when you only need one daily batch)
+Daily one-shot mode:
 
 ```bash
 systemctl --user enable --now stock-sentiment-once.timer
 ```
 
-If switching modes, disable the other one first.
+If your checkout is not in `~/homelab/stock-sentiment-cli`, edit `WorkingDirectory` and `ExecStart` in the copied unit files before enabling them.
 
-### 3) View logs and status
-
-```bash
-systemctl --user status stock-sentiment-daemon.service
-journalctl --user -u stock-sentiment-daemon.service -f
-journalctl --user -u stock-sentiment-once.service -n 200 --no-pager
-```
-
-### 4) Stop/disable
+If you want services to keep running after logout:
 
 ```bash
-systemctl --user stop stock-sentiment-daemon.service
-systemctl --user disable stock-sentiment-daemon.service
-
-systemctl --user stop stock-sentiment-once.timer
-systemctl --user disable stock-sentiment-once.timer
+sudo loginctl enable-linger "$USER"
 ```
 
-Notes:
-- `journald` handles log rotation/retention, so you do not need to implement application-level file rotation first.
-- If your project path is not `~/homelab/stock-sentiment-cli`, edit `WorkingDirectory` and `ExecStart` in the unit files before enabling them.
+After changing Python code or `.env`, restart the daemon:
+
+```bash
+systemctl --user restart stock-sentiment-daemon.service
+```
+
+## CLI reference
+
+### `db-init`
+
+Initializes the local database schema and seed data.
+
+```bash
+python cli.py db-init
+```
+
+### `add <company-or-ticker>`
+
+Adds a company to the watchlist and queues a backfill task.
+
+```bash
+python cli.py add AAPL
+python cli.py add "Apple"
+```
+
+### `remove <ticker>`
+
+Removes a company from the watchlist.
+
+```bash
+python cli.py remove AAPL
+```
+
+### `list`
+
+Lists watched companies and their backfill status.
+
+```bash
+python cli.py list
+```
+
+### `inspect <company>`
+
+Reads stored source documents directly from the database.
+
+```bash
+python cli.py inspect AAPL --limit 5
+python cli.py inspect AAPL --limit 5 --text
+```
+
+### `analyze <company>`
+
+Runs the synthesis step and prints a formatted summary.
+
+```bash
+python cli.py analyze AAPL
+python cli.py analyze AAPL --fresh
+```
+
+Use `--fresh` when you want to bypass the 6-hour analysis cache.
+
+### `run`
+
+Starts ingestion plus optional analysis.
+
+```bash
+python cli.py run --once
+python cli.py run --interval 15m
+python cli.py run --interval daily
+python cli.py run --once --no-analysis
+python cli.py run --once --email-to ops@example.com
+python cli.py run --once --log-file ./stock-sentiment.log
+```
+
+## Optional services
+
+### API
+
+The API is a thin wrapper around the analysis path.
+
+```bash
+uvicorn api.app:app --reload
+```
+
+Endpoints:
+
+- `POST /analyze`
+- `GET /status/{ticker}`
+
+Example request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/analyze \
+  -H 'content-type: application/json' \
+  -d '{"company":"AAPL","force_refresh":true}'
+```
+
+### Viewer
+
+The viewer serves exported analysis bundles from disk.
+
+```bash
+python viewer/app.py
+```
+
+Open `http://127.0.0.1:8000` in a browser.
+
+Useful viewer environment overrides:
+
+- `ANALYSIS_DIR` to point at a different export directory
+- `VIEWER_PORT` to change the listen port
+
+## Configuration guide
+
+The environment file controls four categories of behavior.
+
+### Core
+
+- `DB_URL`, `DB_URL_SYNC` for PostgreSQL connections
+- `ANALYSIS_OUTPUT_DIR` for exported summaries
+- `FINBERT_DEVICE` with `auto`, `cpu`, or `cuda`
+- `AGENT_CACHE_TTL` for analysis cache lifetime
+
+### LLM synthesis
+
+- `LLM_PROVIDER`
+- `OPENAI_API_KEY`, `OPENAI_*`
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_*`
+
+### Ingestion and enrichment
+
+- `FINNHUB_KEY` for company resolution, news, and transcript support
+- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` for Reddit ingestion
+- `FRED_API_KEY` and `MACRO_WEIGHT` for macro overlay behavior
+- `FMP_API_KEY` as an optional transcript fallback
+
+### Delivery
+
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_FROM`
+- `EMAIL_TO` for default recipients
+- `ANALYSIS_DIR`, `VIEWER_PORT` for the viewer
+
+For the complete variable list, use `.env.example` as the contract.
+
+## Project map
+
+- `cli.py` — primary entry point
+- `ingestion/` — all source adapters and scheduling logic
+- `processing/` — preprocessing, chunking, model registry, and worker execution
+- `deduplication/` — document deduplication helpers
+- `aggregation/` — sentiment scoring and macro overlay logic
+- `resolution/` — ticker and company resolution
+- `agent/` — conflict detection, synthesis, and provider clients
+- `db/` — models, async session setup, and Timescale helpers
+- `output/` — formatted analysis exports
+- `api/` — optional FastAPI surface
+- `viewer/` — lightweight browser UI for exported summaries
+- `ops/systemd/` — user-service templates for Linux
+- `tests/` — unit coverage for core pipeline behavior
+- `docs/` — architecture, deployment notes, and screenshots
+
+## Documentation
+
+- `docs/architecture.md` explains the moving parts and data flow
+- `docs/deployment.md` covers local runs, systemd, API, viewer, and operating notes
+
+## Development
+
+Run the test suite with:
+
+```bash
+python -m pytest -q
+```
+
+If `pytest` is not installed in your environment yet, install dependencies first with `pip install -r requirements.txt`.
 
 ## Notes
 
-- The ingestion daemon only processes companies that have been added to the watchlist.
-- Analysis results are stored in the database (`analysis_runs`) and exported to `output/analysis/<ticker>/` by default.
-- If no API keys are configured, the pipeline will still start, but some data sources may skip ingestion or return partial results.
-- FinBERT now auto-detects a compatible runtime device at startup. If the installed Torch/CUDA build does not support the current GPU, the app falls back to CPU automatically, which also keeps ARM-only hosts working.
-- `db-init` will fail fast if Alembic migrations do not complete successfully.
+- The pipeline only processes companies that are in the watchlist.
+- If you omit external API keys, the system still starts, but ingestion coverage becomes narrower.
+- FinBERT auto-detects whether the local Torch build can use CUDA. If not, it falls back to CPU.
+- Source weights are seeded from `config/source_tiers.yaml` and can be tuned later.
+- Sector-aware macro behavior is driven by `config/sector_macro_weights.yaml`.
