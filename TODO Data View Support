@@ -1,9 +1,0 @@
-Currently if the user wants to verify the legitimacy of the data, they need to either run docker exec into the pg database and query it manually. Alternatively, they can put breakpoints before the open api call and view the raw json data.
-
-Both methods are tedious and require manual intervention.
-
-I would like to create a better option for this. One could be a CLI command to retrieve the json ingested data for a company name. 
-
-Another would be to upgade on the postgres docker compose solution with a web server in which data is pulled visually from PG into a neat UI that's easy to navigate for a user.
-
-I believe both approaches are worthwhile, however feel free to come up with a better solution if one is found.
