@@ -1,5 +1,9 @@
 # Stock Sentiment
 
+A tool for managing investment portfolios directly from your CLI. Run it directly, add it as a plugin to your favourite harnes or run it as a daily service.
+
+![Analysis run](docs/analysis.png)
+
 Stock Sentiment turns a noisy stream of filings, transcripts, news, macro signals, and social chatter into a compact investment brief you can actually act on.
 
 It is built for the exact moment when you want to answer questions like:
@@ -20,6 +24,10 @@ Inspect mode shows the raw evidence that entered the pipeline:
 Analysis mode turns that evidence into a sentiment brief with drivers, risks, and conflict detection:
 
 ![Analysis run](docs/analysis.png)
+
+Feature rich UI view, allowing you to integrate that with your homelab for a daily visual rundown:  
+
+![UI-View](docs/ui-view.png)
 
 ## What this project includes
 
