@@ -1,6 +1,6 @@
 # Stock Sentiment
 
-A tool for managing investment portfolios directly from your CLI. Run it directly, add it as a plugin to your favourite harnes or run it as a daily service.
+A tool for managing investment portfolios directly from your CLI. Run it directly, add it as a plugin to your favourite harness or simply run it as a service.
 
 ![Analysis run](docs/analysis.png)
 
