@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.0",
+  "kind": "stock-sentiment.cli.manifest",
+  "program": "cli.py",
+  "invoked_as": "python cli.py",
+  "version": "0.1.0",
+  "generated_at": "2026-09-13T09:41:02.114Z",
+  "help_topic": null,
+  "global_options": [
+    {
+      "name": "--json",
+      "takes_value": false,
+      "default": false,
+      "description": "Emit a single JSON document on stdout. Logs and progress go to stderr."
+    },
+    {
+      "name": "--quiet",
+      "takes_value": false,
+      "default": false,
+      "description": "Suppress human-oriented rendering and progress output."
+    },
+    {
+      "name": "--fields",
+      "takes_value": true,
+      "type": "text",
+      "value_name": "LIST",
+      "default": null,
+      "description": "Comma-separated subset of top-level JSON fields to return."
+    },
+    {
+      "name": "--schema",
+      "takes_value": false,
+      "default": false,
+      "description": "Print the JSON Schema for the selected command's --json output, then exit."
+    },
+    {
+      "name": "--help",
+      "takes_value": false,
+      "default": false,
+      "description": "Show help. Combine with --json to print this manifest."
+    }
+  ],
+  "exit_codes": {
+    "0": "success",
+    "1": "unexpected internal error",
+    "2": "usage error (unknown option, missing or invalid argument)",
+    "3": "company or ticker could not be resolved",
+    "4": "database not initialised or unreachable",
+    "5": "analysis failed (LLM provider error, models unavailable)",
+    "6": "no context or evidence available for the ticker"
+  },
+  "commands": [
+    {
+      "name": "db-init",
+      "summary": "Initialise the database: run Alembic migrations and TimescaleDB setup.",
+      "usage": "python cli.py db-init [OPTIONS]",
+      "global_options_apply": true,
+      "arguments": [],
+      "options": [],
+      "mutates_state": true,
+      "requires_database": false,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/db-init-result/v1",
+      "examples": [
+        "python cli.py db-init --json"
+      ]
+    },
+    {
+      "name": "add",
+      "summary": "Add a company to the watchlist. Accepts a company name or ticker.",
+      "usage": "python cli.py add [OPTIONS] COMPANY",
+      "global_options_apply": true,
+      "arguments": [
+        {
+          "name": "COMPANY",
+          "required": true,
+          "type": "text",
+          "description": "Company name or ticker symbol."
+        }
+      ],
+      "options": [],
+      "mutates_state": true,
+      "requires_database": true,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/add-result/v1",
+      "examples": [
+        "python cli.py add AAPL --json",
+        "python cli.py add \"Apple\" --json"
+      ]
+    },
+    {
+      "name": "remove",
+      "summary": "Remove a company from the watchlist.",
+      "usage": "python cli.py remove [OPTIONS] TICKER",
+      "global_options_apply": true,
+      "arguments": [
+        {
+          "name": "TICKER",
+          "required": true,
+          "type": "text",
+          "description": "Exact ticker symbol."
+        }
+      ],
+      "options": [],
+      "mutates_state": true,
+      "requires_database": true,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/remove-result/v1",
+      "examples": [
+        "python cli.py remove AAPL --json"
+      ]
+    },
+    {
+      "name": "list",
+      "summary": "List all companies in the watchlist.",
+      "usage": "python cli.py list [OPTIONS]",
+      "global_options_apply": true,
+      "arguments": [],
+      "options": [],
+      "mutates_state": false,
+      "requires_database": true,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/watchlist/v1",
+      "examples": [
+        "python cli.py list --json"
+      ]
+    },
+    {
+      "name": "inspect",
+      "summary": "Inspect ingested documents for a company from the local database.",
+      "usage": "python cli.py inspect [OPTIONS] COMPANY",
+      "global_options_apply": true,
+      "arguments": [
+        {
+          "name": "COMPANY",
+          "required": true,
+          "type": "text",
+          "description": "Company name or ticker symbol."
+        }
+      ],
+      "options": [
+        {
+          "name": "--limit",
+          "takes_value": true,
+          "type": "int",
+          "value_name": "INTEGER",
+          "default": 10,
+          "description": "Maximum number of ingested documents to return."
+        },
+        {
+          "name": "--text",
+          "takes_value": false,
+          "default": false,
+          "description": "Render documents as a human-readable report instead of JSON."
+        }
+      ],
+      "mutates_state": false,
+      "requires_database": true,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/inspect-result/v1",
+      "examples": [
+        "python cli.py inspect AAPL --limit 5 --json"
+      ]
+    },
+    {
+      "name": "analyze",
+      "summary": "Run sentiment analysis for a company and display the investment summary.",
+      "usage": "python cli.py analyze [OPTIONS] COMPANY",
+      "global_options_apply": true,
+      "arguments": [
+        {
+          "name": "COMPANY",
+          "required": true,
+          "type": "text",
+          "description": "Company name or ticker symbol."
+        }
+      ],
+      "options": [
+        {
+          "name": "--fresh",
+          "takes_value": false,
+          "default": false,
+          "description": "Force fresh analysis, bypassing the 6-hour cache."
+        }
+      ],
+      "mutates_state": true,
+      "requires_database": true,
+      "requires_llm": true,
+      "json_output_ref": "stock-sentiment://schema/analyze-result/v1",
+      "examples": [
+        "python cli.py analyze AAPL --json",
+        "python cli.py analyze AAPL --fresh --json --fields ticker,direction,confidence_pct"
+      ]
+    },
+    {
+      "name": "run",
+      "summary": "Start the ingestion and processing daemon.",
+      "usage": "python cli.py run [OPTIONS]",
+      "global_options_apply": true,
+      "arguments": [],
+      "options": [
+        {
+          "name": "--once",
+          "takes_value": false,
+          "default": false,
+          "description": "Run one ingestion cycle then exit (for testing)."
+        },
+        {
+          "name": "--interval",
+          "takes_value": true,
+          "type": "text",
+          "value_name": "TEXT",
+          "default": null,
+          "description": "How often the daemon should run the ingestion cycle.",
+          "examples": [
+            "15m",
+            "1h",
+            "daily",
+            "weekly",
+            "2 weeks"
+          ]
+        },
+        {
+          "name": "--email-to",
+          "takes_value": true,
+          "type": "text",
+          "value_name": "TEXT",
+          "multiple": true,
+          "default": [],
+          "description": "Email address to receive the generated summary report. May be supplied multiple times."
+        },
+        {
+          "name": "--log-file",
+          "takes_value": true,
+          "type": "path",
+          "value_name": "FILE",
+          "default": null,
+          "description": "Write logs to a file in addition to stderr."
+        },
+        {
+          "name": "--analysis",
+          "negated_name": "--no-analysis",
+          "takes_value": false,
+          "default": true,
+          "description": "Run company analysis during each ingestion cycle."
+        }
+      ],
+      "mutates_state": true,
+      "requires_database": true,
+      "requires_llm": false,
+      "json_output_ref": "stock-sentiment://schema/run-result/v1",
+      "examples": [
+        "python cli.py run --once --json",
+        "python cli.py run --interval daily --log-file ./stock-sentiment.log"
+      ]
+    }
+  ]
+}

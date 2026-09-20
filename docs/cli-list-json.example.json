@@ -1,0 +1,164 @@
+{
+  "schema_version": "1.0",
+  "kind": "stock-sentiment.company-list",
+  "generated_at": "2026-09-13T09:41:02.114Z",
+  "count": 8,
+  "warnings": [
+    "2 of 8 tickers have no analysis run: NOW, ZETA.",
+    "AAPL's most recent analysis failed; it is excluded from ranking."
+  ],
+  "companies": [
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc",
+      "sector": "Technology",
+      "industry": "Technology",
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-01T14:20:11.005Z",
+      "added_at": "2026-08-01T13:55:12.402Z",
+      "analysis": {
+        "status": "failed",
+        "last_run_at": "2026-08-10T10:48:32.022Z",
+        "direction": null,
+        "confidence_pct": null,
+        "document_count_7d": 0,
+        "age_seconds": 2933550,
+        "stale": true,
+        "error": "LLM provider error: model 'meta-llama-3.1-70b-instruct' not found (404)"
+      }
+    },
+    {
+      "ticker": "GRMN",
+      "name": "Garmin Ltd",
+      "sector": "Consumer products",
+      "industry": "Consumer products",
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-10T23:02:44.871Z",
+      "added_at": "2026-08-10T22:38:00.117Z",
+      "analysis": {
+        "status": "ok",
+        "last_run_at": "2026-09-13T04:12:00.000Z",
+        "direction": "MIXED",
+        "confidence_pct": 60,
+        "document_count_7d": 2,
+        "age_seconds": 19742,
+        "stale": false,
+        "error": null
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corp",
+      "sector": "Technology",
+      "industry": "Technology",
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-01T14:31:09.220Z",
+      "added_at": "2026-08-01T14:02:31.884Z",
+      "analysis": {
+        "status": "ok",
+        "last_run_at": "2026-09-13T04:10:00.000Z",
+        "direction": "BULLISH",
+        "confidence_pct": 75,
+        "document_count_7d": 257,
+        "age_seconds": 19862,
+        "stale": false,
+        "error": null
+      }
+    },
+    {
+      "ticker": "NBIS",
+      "name": "Nebius Group NV",
+      "sector": "Technology",
+      "industry": null,
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-05T09:44:02.310Z",
+      "added_at": "2026-08-05T09:14:00.660Z",
+      "analysis": {
+        "status": "ok",
+        "last_run_at": "2026-09-12T21:41:39.659Z",
+        "direction": "MIXED",
+        "confidence_pct": 60,
+        "document_count_7d": 158,
+        "age_seconds": 43162,
+        "stale": false,
+        "error": null
+      }
+    },
+    {
+      "ticker": "NOW",
+      "name": "ServiceNow Inc",
+      "sector": "Technology",
+      "industry": "Technology",
+      "backfill_status": "pending",
+      "backfill_completed_at": null,
+      "added_at": "2026-08-10T22:39:00.203Z",
+      "analysis": {
+        "status": "missing",
+        "last_run_at": null,
+        "direction": null,
+        "confidence_pct": null,
+        "document_count_7d": null,
+        "age_seconds": null,
+        "stale": null,
+        "error": null
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corp",
+      "sector": "Technology",
+      "industry": "Semiconductors",
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-01T14:38:55.701Z",
+      "added_at": "2026-08-01T14:10:00.512Z",
+      "analysis": {
+        "status": "ok",
+        "last_run_at": "2026-09-13T04:15:00.000Z",
+        "direction": "BULLISH",
+        "confidence_pct": 68,
+        "document_count_7d": 412,
+        "age_seconds": 19562,
+        "stale": false,
+        "error": null
+      }
+    },
+    {
+      "ticker": "RDDT",
+      "name": "Reddit Inc",
+      "sector": "Communication Services",
+      "industry": "Interactive Media",
+      "backfill_status": "completed",
+      "backfill_completed_at": "2026-08-08T11:52:41.118Z",
+      "added_at": "2026-08-08T11:20:00.907Z",
+      "analysis": {
+        "status": "ok",
+        "last_run_at": "2026-09-12T21:41:55.835Z",
+        "direction": "NEUTRAL",
+        "confidence_pct": 45,
+        "document_count_7d": 96,
+        "age_seconds": 43146,
+        "stale": false,
+        "error": null
+      }
+    },
+    {
+      "ticker": "ZETA",
+      "name": "Zeta Global Holdings Corp",
+      "sector": null,
+      "industry": null,
+      "backfill_status": "pending",
+      "backfill_completed_at": null,
+      "added_at": "2026-08-10T22:40:00.441Z",
+      "analysis": {
+        "status": "missing",
+        "last_run_at": null,
+        "direction": null,
+        "confidence_pct": null,
+        "document_count_7d": null,
+        "age_seconds": null,
+        "stale": null,
+        "error": null
+      }
+    }
+  ]
+}

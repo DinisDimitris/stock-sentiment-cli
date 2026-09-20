@@ -16,23 +16,60 @@
           <div>
             <h1>Stock Analysis Board</h1>
             <p class="lede">
-              Live view of every folder in the attached analysis directory, including the text summary and structured JSON output.
+              One card per watched ticker, built from the structured analysis bundle.
             </p>
           </div>
           <div class="hero__meta">
-            <span id="stock-count" class="chip">0 tickers</span>
             <span id="last-refresh" class="chip">Waiting for data</span>
             <button id="refresh-button" class="ghost-button" type="button">Refresh</button>
           </div>
         </div>
       </header>
 
-      <section class="status-bar" aria-label="data source information">
-        <span class="status-label">Source directory</span>
-        <code id="analysis-path"></code>
+      <section id="board-view">
+        <section class="controls" aria-label="Search, filter, and sort tickers">
+          <label class="control control--search" for="search-input">
+            <span class="control__label">Search</span>
+            <input
+              id="search-input"
+              type="search"
+              placeholder="Ticker, company, or sector"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+          <label class="control" for="direction-filter">
+            <span class="control__label">Direction</span>
+            <select id="direction-filter">
+              <option value="ALL">All</option>
+              <option value="BULLISH">Bullish</option>
+              <option value="BEARISH">Bearish</option>
+              <option value="MIXED">Mixed</option>
+              <option value="NEUTRAL">Neutral</option>
+            </select>
+          </label>
+          <label class="control" for="sort-select">
+            <span class="control__label">Sort</span>
+            <select id="sort-select">
+              <option value="ticker">Ticker (A–Z)</option>
+              <option value="updated">Last updated</option>
+              <option value="confidence">Confidence</option>
+              <option value="score_7d">7d score</option>
+            </select>
+          </label>
+          <button id="reset-button" class="ghost-button" type="button">Reset</button>
+          <span id="result-count" class="chip" role="status" aria-live="polite">0 tickers</span>
+        </section>
+
+        <section id="stock-grid" class="stock-grid" aria-live="polite"></section>
       </section>
 
-      <section id="stock-grid" class="stock-grid" aria-live="polite"></section>
+      <section id="detail-view" class="detail" hidden></section>
+
+      <details class="source-info">
+        <summary>Data source</summary>
+        <p class="subtle">Analysis directory: <code id="analysis-path"></code></p>
+      </details>
     </main>
   </body>
 </html>
