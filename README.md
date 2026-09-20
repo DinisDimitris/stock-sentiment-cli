@@ -29,6 +29,10 @@ Feature rich UI view, allowing you to integrate that with your homelab for a dai
 
 ![UI-View](docs/ui-view.png)
 
+Each card is searchable and filterable, and links to a per-ticker detail view with the full evidence bundle:
+
+![UI-Detail](docs/ui-detail.png)
+
 ## What this project includes
 
 - A CLI for bootstrapping the database, managing a watchlist, running ingestion, inspecting stored documents, and generating analysis
